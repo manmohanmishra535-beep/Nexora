@@ -1,0 +1,125 @@
+/* ---------------------------------------------------------------------------
+   Nexora design tokens
+   Mirrors "Nexora Design System" exactly. Every colour, radius and duration
+   used by the UI comes from these variables, and Tailwind maps the same
+   variables in @theme, so a theme change never needs a rebuild.
+   --------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  --bg: #f5f7f6;
+  --surface: #ffffff;
+  --surface-2: #ebf0ee;
+  --line: #d9e1de;
+
+  --ink: #0f1714;
+  --ink-2: #4a5a55;
+  --ink-3: #5f706a;
+
+  --accent: #0a7f66;
+  --accent-soft: #ddf1eb;
+  --on-accent: #ffffff;
+
+  --like: #c7284f;
+  --warn: #9a4a06;
+  --danger: #b3261e;
+
+  --f-display: var(--font-display-src), "Bricolage Grotesque", system-ui, sans-serif;
+  --f-body: var(--font-body-src), "Instrument Sans", system-ui, sans-serif;
+  --f-mono: var(--font-mono-src), "JetBrains Mono", ui-monospace, monospace;
+
+  --r-1: 6px;
+  --r-2: 12px;
+  --r-3: 18px;
+  --r-pill: 999px;
+
+  --t-hover: 120ms;
+  --t-menu: 200ms;
+  --t-pop: 320ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #0b1110;
+    --surface: #121a18;
+    --surface-2: #1a2522;
+    --line: #26332f;
+
+    --ink: #eaf1ee;
+    --ink-2: #a7b8b2;
+    --ink-3: #8a9c96;
+
+    --accent: #2fd0a6;
+    --accent-soft: #123a31;
+    --on-accent: #0b1110;
+
+    --like: #ff7a98;
+    --warn: #f0a04b;
+    --danger: #ff8a80;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0b1110;
+  --surface: #121a18;
+  --surface-2: #1a2522;
+  --line: #26332f;
+
+  --ink: #eaf1ee;
+  --ink-2: #a7b8b2;
+  --ink-3: #8a9c96;
+
+  --accent: #2fd0a6;
+  --accent-soft: #123a31;
+  --on-accent: #0b1110;
+
+  --like: #ff7a98;
+  --warn: #f0a04b;
+  --danger: #ff8a80;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-hover: 0ms;
+    --t-menu: 0ms;
+    --t-pop: 0ms;
+  }
+}
+
+/* Tailwind reads the same variables. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+
+  --color-like: var(--like);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+
+  --font-display: var(--f-display);
+  --font-body: var(--f-body);
+  --font-mono: var(--f-mono);
+
+  --radius-1: var(--r-1);
+  --radius-2: var(--r-2);
+  --radius-3: var(--r-3);
+  --radius-pill: var(--r-pill);
+
+  --duration-hover: var(--t-hover);
+  --duration-menu: var(--t-menu);
+  --duration-pop: var(--t-pop);
+}
