@@ -64,3 +64,5 @@ backend/build/
 # Frontend build files
 frontend/.next/
 frontend/out/
+
+.tmp-ticket
