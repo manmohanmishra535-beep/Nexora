@@ -32,10 +32,8 @@ const requireAuth = asyncHandler(async (req, res, next) => {
  */
 const optionalAuth = asyncHandler(async (req, res, next) => {
     try {
-        console.warn("[optionalAuth] userId", getAuth(req)?.userId);
         req.user = await resolveUser(req);
     } catch (error) {
-        console.warn("[optionalAuth]", error.message);
         req.user = null;
     }
 

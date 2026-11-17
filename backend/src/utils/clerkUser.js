@@ -98,7 +98,7 @@ const upsertUserFromClerk = async (clerkId, { force = false } = {}) => {
     return User.findByIdAndUpdate(
         user._id,
         { $set: fields },
-        { new: true, runValidators: true }
+        { returnDocument: "after", runValidators: true }
     );
 };
 
