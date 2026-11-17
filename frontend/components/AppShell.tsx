@@ -21,8 +21,10 @@ type NavItem = {
 
 export default function AppShell({
   children,
+  activePage,
 }: {
   children: React.ReactNode;
+  activePage?: string;
 }) {
   const pathname = usePathname();
   const { user, isLoaded, isSignedIn } = useUser();
