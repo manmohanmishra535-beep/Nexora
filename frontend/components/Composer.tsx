@@ -37,7 +37,10 @@ export default function Composer({
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const imagesRef = useRef<PickedImage[]>([]);
-  imagesRef.current = images;
+
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
 
   useEffect(
     () => () => {

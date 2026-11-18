@@ -12,7 +12,11 @@ export type Api = {
   post: <T>(path: string, body?: unknown) => Promise<T>;
   patch: <T>(path: string, body?: unknown) => Promise<T>;
   del: <T>(path: string, body?: unknown) => Promise<T>;
-  upload: <T>(path: string, formData: FormData, method?: "POST" | "PATCH") => Promise<T>;
+  upload: <T>(
+    path: string,
+    formData: FormData,
+    method?: "POST" | "PATCH"
+  ) => Promise<T>;
 };
 
 /**
@@ -26,20 +30,49 @@ export function useApi(): Api {
     const token = () => getToken();
 
     return {
-      get: async <T,>(path: string, query?: Query, signal?: AbortSignal) =>
-        apiRequest<T>(path, { method: "GET", token: await token(), query, signal }),
+      get: async <T,>(
+        path: string,
+        query?: Query,
+        signal?: AbortSignal
+      ) =>
+        apiRequest<T>(path, {
+          method: "GET",
+          token: await token(),
+          query,
+          signal,
+        }),
 
       post: async <T,>(path: string, body?: unknown) =>
-        apiRequest<T>(path, { method: "POST", token: await token(), body }),
+        apiRequest<T>(path, {
+          method: "POST",
+          token: await token(),
+          body,
+        }),
 
       patch: async <T,>(path: string, body?: unknown) =>
-        apiRequest<T>(path, { method: "PATCH", token: await token(), body }),
+        apiRequest<T>(path, {
+          method: "PATCH",
+          token: await token(),
+          body,
+        }),
 
       del: async <T,>(path: string, body?: unknown) =>
-        apiRequest<T>(path, { method: "DELETE", token: await token(), body }),
+        apiRequest<T>(path, {
+          method: "DELETE",
+          token: await token(),
+          body,
+        }),
 
-      upload: async <T,>(path: string, formData: FormData, method: "POST" | "PATCH" = "POST") =>
-        apiRequest<T>(path, { method, token: await token(), formData }),
+      upload: async <T,>(
+        path: string,
+        formData: FormData,
+        method: "POST" | "PATCH" = "POST"
+      ) =>
+        apiRequest<T>(path, {
+          method,
+          token: await token(),
+          formData,
+        }),
     };
   }, [getToken]);
 }

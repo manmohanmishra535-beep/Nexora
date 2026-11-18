@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useClerk } from "@clerk/nextjs";
 import { useEffect, useRef, useState } from "react";
 
+import LogoutDialog from "@/components/LogoutDialog";
 import PageHeader from "@/components/PageHeader";
 import Avatar from "@/components/ui/Avatar";
 import Button from "@/components/ui/Button";
@@ -24,45 +24,56 @@ const THEMES = [
   { value: "dark", label: "Dark" },
 ] as const;
 
+type ProfileForm = {
+  displayName: string;
+  username: string;
+  bio: string;
+};
+
 export default function SettingsPage() {
   const api = useApi();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { mode, setMode } = useTheme();
-  const { signOut } = useClerk();
   const me = useMyProfile();
 
-  const [form, setForm] = useState({
-    displayName: "",
-    username: "",
-    bio: "",
-  });
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [edits, setEdits] = useState<Partial<ProfileForm>>({});
   const [fields, setFields] = useState<Record<string, string>>({});
   const [avatar, setAvatar] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
+  const previewRef = useRef("");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    if (me.data) {
-      setForm({
-        displayName: me.data.displayName || "",
-        username: me.data.username || "",
-        bio: me.data.bio || "",
-      });
-    }
-  }, [me.data]);
+  // Derive the form from the fetched profile until the user starts editing.
+  // This avoids copying server state into React state inside an effect.
+  const form: ProfileForm = {
+    displayName: edits.displayName ?? me.data?.displayName ?? "",
+    username: edits.username ?? me.data?.username ?? "",
+    bio: edits.bio ?? me.data?.bio ?? "",
+  };
+  const setForm = (next: ProfileForm) => setEdits(next);
 
-  useEffect(() => {
-    if (!avatar) {
-      setPreview("");
-      return;
+  // Selected avatars are previewed through an object URL that we own.
+  useEffect(
+    () => () => {
+      if (previewRef.current) {
+        URL.revokeObjectURL(previewRef.current);
+      }
+    },
+    []
+  );
+
+  const chooseAvatar = (file: File) => {
+    if (previewRef.current) {
+      URL.revokeObjectURL(previewRef.current);
     }
 
-    const url = URL.createObjectURL(avatar);
+    const url = URL.createObjectURL(file);
+    previewRef.current = url;
+    setAvatar(file);
     setPreview(url);
-
-    return () => URL.revokeObjectURL(url);
-  }, [avatar]);
+  };
 
   const save = useMutation({
     mutationFn: async () => {
@@ -81,7 +92,15 @@ export default function SettingsPage() {
 
     onSuccess: (data) => {
       setFields({});
+      setEdits({});
       setAvatar(null);
+      setPreview("");
+
+      if (previewRef.current) {
+        URL.revokeObjectURL(previewRef.current);
+        previewRef.current = "";
+      }
+
       queryClient.setQueryData(["me"], data.user);
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["feed"] });
@@ -162,7 +181,7 @@ export default function SettingsPage() {
                     return;
                   }
 
-                  setAvatar(file);
+                  chooseAvatar(file);
                 }}
               />
 
@@ -333,13 +352,18 @@ export default function SettingsPage() {
             variant="danger"
             size="sm"
             className="mt-4"
-            onClick={() => signOut({ redirectUrl: "/sign-in" })}
+            onClick={() => setLogoutOpen(true)}
           >
             <Icon name="logout" size={16} />
             Log out
           </Button>
         </section>
       </form>
+
+      <LogoutDialog
+        open={logoutOpen}
+        onClose={() => setLogoutOpen(false)}
+      />
     </>
   );
 }

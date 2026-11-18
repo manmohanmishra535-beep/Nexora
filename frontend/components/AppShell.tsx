@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useUser, useClerk } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
+import { useState } from "react";
 
+import LogoutDialog from "@/components/LogoutDialog";
 import RightRail from "@/components/RightRail";
 import UserSync from "@/components/UserSync";
 import Avatar from "@/components/ui/Avatar";
@@ -21,16 +23,14 @@ type NavItem = {
 
 export default function AppShell({
   children,
-  activePage,
 }: {
   children: React.ReactNode;
-  activePage?: string;
 }) {
   const pathname = usePathname();
   const { user, isLoaded, isSignedIn } = useUser();
-  const { signOut } = useClerk();
   const me = useMyProfile(Boolean(isSignedIn));
   const unread = useUnreadCount(Boolean(isSignedIn));
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   const username =
     me.data?.username || user?.username || user?.firstName?.toLowerCase() || "";
@@ -80,14 +80,6 @@ export default function AppShell({
 
   const badge = unread.data || 0;
 
-  if (!isLoaded) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-bg text-[13px] text-ink-3">
-        Loading Nexora…
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[1290px]">
       <UserSync />
@@ -108,17 +100,24 @@ export default function AppShell({
           </span>
         </Link>
 
-        <Link
-          href={isSignedIn ? profileHref : "/sign-in"}
-          aria-label={isSignedIn ? "Your profile" : "Sign in"}
-          className="rounded-full"
-        >
-          <Avatar
-            src={user?.imageUrl}
-            name={user?.fullName || user?.firstName || "N"}
-            size={32}
+        {isLoaded ? (
+          <Link
+            href={isSignedIn ? profileHref : "/sign-in"}
+            aria-label={isSignedIn ? "Your profile" : "Sign in"}
+            className="rounded-full"
+          >
+            <Avatar
+              src={user?.imageUrl}
+              name={user?.fullName || user?.firstName || "N"}
+              size={32}
+            />
+          </Link>
+        ) : (
+          <span
+            aria-hidden="true"
+            className="h-8 w-8 animate-pulse rounded-full bg-surface-2"
           />
-        </Link>
+        )}
       </header>
 
       {/* Full navigation */}
@@ -170,7 +169,18 @@ export default function AppShell({
         </Link>
 
         <div className="mt-auto border-t border-line pt-3">
-          {isSignedIn ? (
+          {!isLoaded ? (
+            <div
+              aria-hidden="true"
+              className="flex items-center gap-2.5 px-1"
+            >
+              <span className="h-8 w-8 animate-pulse rounded-full bg-surface-2" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <span className="block h-3 w-24 animate-pulse rounded bg-surface-2" />
+                <span className="block h-2.5 w-16 animate-pulse rounded bg-surface-2" />
+              </div>
+            </div>
+          ) : isSignedIn ? (
             <div className="flex items-center gap-2.5 px-1">
               <Link href={profileHref} className="rounded-full">
                 <Avatar
@@ -191,7 +201,7 @@ export default function AppShell({
 
               <button
                 type="button"
-                onClick={() => signOut({ redirectUrl: "/sign-in" })}
+                onClick={() => setLogoutOpen(true)}
                 aria-label="Sign out"
                 title="Sign out"
                 className="grid h-9 w-9 place-items-center rounded-full text-ink-3 transition-colors duration-hover hover:bg-surface-2 hover:text-ink"
@@ -302,18 +312,32 @@ export default function AppShell({
           );
         })}
 
-        <Link
-          href={isSignedIn ? profileHref : "/sign-in"}
-          aria-label="Profile"
-          className="flex flex-1 items-center justify-center text-ink-3"
-        >
-          <Avatar
-            src={user?.imageUrl}
-            name={user?.fullName || user?.firstName || "N"}
-            size={28}
-          />
-        </Link>
+        {isLoaded ? (
+          <Link
+            href={isSignedIn ? profileHref : "/sign-in"}
+            aria-label="Profile"
+            className="flex flex-1 items-center justify-center text-ink-3"
+          >
+            <Avatar
+              src={user?.imageUrl}
+              name={user?.fullName || user?.firstName || "N"}
+              size={28}
+            />
+          </Link>
+        ) : (
+          <span
+            aria-hidden="true"
+            className="flex flex-1 items-center justify-center"
+          >
+            <span className="h-7 w-7 animate-pulse rounded-full bg-surface-2" />
+          </span>
+        )}
       </nav>
+
+      <LogoutDialog
+        open={logoutOpen}
+        onClose={() => setLogoutOpen(false)}
+      />
     </div>
   );
 }

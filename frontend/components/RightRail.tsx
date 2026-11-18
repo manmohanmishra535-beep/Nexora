@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
 import UserRow from "@/components/UserRow";
 import { useSuggestions } from "@/hooks/useNexora";

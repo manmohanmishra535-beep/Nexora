@@ -110,6 +110,9 @@ export function SocketProvider({
       queryClient.invalidateQueries({ queryKey: ["unread-count"] });
     });
 
+    // Socket.IO is an external system; the instance must be exposed through
+    // context so children can subscribe to it after the connection is created.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSocket(instance);
 
     return () => {

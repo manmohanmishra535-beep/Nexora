@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 
@@ -18,20 +18,26 @@ export default function UserRow({
 }) {
   const follow = useFollow();
   const { isSignedIn } = useAuth();
-  const [following, setFollowing] = useState(user.isFollowing);
 
-  useEffect(() => {
-    setFollowing(user.isFollowing);
-  }, [user.isFollowing]);
+  // Keep an optimistic value until the user prop catches up after a refetch.
+  const [optimistic, setOptimistic] = useState<{
+    value: boolean;
+    base: boolean;
+  } | null>(null);
+  const following =
+    optimistic && optimistic.base === user.isFollowing
+      ? optimistic.value
+      : user.isFollowing;
 
   const toggle = () => {
     const next = !following;
 
-    setFollowing(next);
+    setOptimistic({ value: next, base: user.isFollowing });
     follow.mutate(
       { user, follow: next },
       {
-        onError: () => setFollowing(!next),
+        onError: () =>
+          setOptimistic({ value: following, base: user.isFollowing }),
       }
     );
   };

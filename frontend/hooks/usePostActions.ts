@@ -31,10 +31,10 @@ export function usePostActions() {
   const likeMutation = useMutation({
     mutationFn: ({ post, liked }: LikeVars) =>
       liked
-        ? api.del<{ liked: boolean; likeCount: number }>(
+        ? api.post<{ liked: boolean; likeCount: number }>(
           `/posts/${post._id}/like`
         )
-        : api.post<{ liked: boolean; likeCount: number }>(
+        : api.del<{ liked: boolean; likeCount: number }>(
           `/posts/${post._id}/like`
         ),
 
@@ -77,11 +77,11 @@ export function usePostActions() {
   const repostMutation = useMutation({
     mutationFn: async ({ post, reposted }: RepostVars): Promise<void> => {
       if (reposted) {
-        await api.del<void>(`/posts/${post._id}/repost`);
+        await api.post<{ post: Post }>(`/posts/${post._id}/repost`);
         return;
       }
 
-      await api.post<{ post: Post }>(`/posts/${post._id}/repost`);
+      await api.del<void>(`/posts/${post._id}/repost`);
     },
 
     onMutate: async ({ post, reposted }) => {
@@ -122,8 +122,8 @@ export function usePostActions() {
   const bookmarkMutation = useMutation({
     mutationFn: ({ post, bookmarked }: BookmarkVars) =>
       bookmarked
-        ? api.del<{ bookmarked: boolean }>(`/posts/${post._id}/bookmark`)
-        : api.post<{ bookmarked: boolean }>(`/posts/${post._id}/bookmark`),
+        ? api.post<{ bookmarked: boolean }>(`/posts/${post._id}/bookmark`)
+        : api.del<{ bookmarked: boolean }>(`/posts/${post._id}/bookmark`),
 
     onMutate: async ({ post, bookmarked }) => {
       const snapshot = snapshotCaches(queryClient);

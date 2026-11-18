@@ -21,7 +21,10 @@ export default function InfiniteSentinel({
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const callback = useRef(onVisible);
-  callback.current = onVisible;
+
+  useEffect(() => {
+    callback.current = onVisible;
+  }, [onVisible]);
 
   useEffect(() => {
     const node = ref.current;

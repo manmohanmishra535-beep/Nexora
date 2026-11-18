@@ -41,6 +41,9 @@ export function ThemeProvider({
       const stored = localStorage.getItem(STORAGE_KEY);
 
       if (stored === "light" || stored === "dark") {
+        // The inline boot script already applied the stored theme to the
+        // document; this only syncs the React context after hydration.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setModeState(stored);
         applyMode(stored);
       }
