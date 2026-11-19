@@ -10,11 +10,12 @@ const morgan = require("morgan");
 const { clerkMiddleware } = require("@clerk/express");
 
 const connectDB = require("./config/database");
-const { validateEnv } = require("./config/env");
+const { validateEnv, isCloudinaryConfigured } = require("./config/env");
 const initSocket = require("./realtime/socket");
 const { apiLimiter } = require("./middleware/rateLimit.middleware");
 const { sanitizeBody } = require("./middleware/validate.middleware");
 const { notFound, errorHandler } = require("./middleware/error.middleware");
+const { UPLOAD_ROOT } = require("./utils/imageStorage");
 
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
@@ -46,20 +47,63 @@ app.use(
 app.use(helmet());
 app.use(express.json({ limit: "10kb" }));
 app.use(sanitizeBody);
-app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+
+if (process.env.NODE_ENV !== "test") {
+    app.use(
+        morgan(process.env.NODE_ENV === "production" ? "combined" : "dev")
+    );
+}
 
 // Clerk verifies the bearer token on every request that needs identity.
-app.use(clerkMiddleware());
+// Allow a small clock drift: a freshly issued token can have an `iat` a few
+// seconds ahead of this machine, which otherwise fails immediately after mint.
+app.use(
+    clerkMiddleware({
+        clockSkewInMs:
+            Number(process.env.CLERK_CLOCK_SKEW_MS) || 30_000,
+    })
+);
 
 app.use("/api", apiLimiter);
 
 app.use("/api/health", healthRoutes);
+
+// Friendly index for the API root, so opening /api in a browser shows what
+// this server is instead of the catch-all 404.
+app.get("/api", (_req, res) => {
+    res.status(200).json({
+        name: "Nexora API",
+        status: "running",
+        endpoints: {
+            health: "/api/health",
+            auth: "/api/auth",
+            users: "/api/users",
+            posts: "/api/posts",
+            comments: "/api/comments",
+            notifications: "/api/notifications",
+            conversations: "/api/conversations",
+        },
+    });
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api", messageRoutes);
+
+// Images stored on local disk (the Cloudinary fallback) are served here.
+// The Next.js origin loads them in <img> tags, so allow cross-origin embedding
+// — helmet's default Cross-Origin-Resource-Policy is same-origin.
+app.use(
+    "/uploads",
+    (_req, res, next) => {
+        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+        next();
+    },
+    express.static(UPLOAD_ROOT)
+);
 
 app.use(notFound);
 app.use(errorHandler);
@@ -84,6 +128,11 @@ const startServer = async () => {
         console.log(`REST:   http://localhost:${PORT}/api`);
         console.log(`Health: http://localhost:${PORT}/api/health`);
         console.log(`Socket: ws://localhost:${PORT}`);
+        console.log(`Images: ${
+            isCloudinaryConfigured()
+                ? "Cloudinary (falls back to local disk on error)"
+                : "local disk (set CLOUDINARY_* for the CDN)"
+        }`);
         console.log(`CORS:   ${allowedOrigins().join(", ")}`);
         console.log("--------------------------------");
     });
@@ -100,7 +149,14 @@ const shutdown = (signal) => {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-startServer().catch((error) => {
-    console.error("Backend startup failed:", error.message);
-    process.exit(1);
-});
+// Start only when run directly (`node src/server.js`, nodemon). Tests
+// require this file for the exported app and must not bind a port or
+// connect to MongoDB themselves.
+if (require.main === module) {
+    startServer().catch((error) => {
+        console.error("Backend startup failed:", error.message);
+        process.exit(1);
+    });
+}
+
+module.exports = app;

@@ -45,6 +45,9 @@ node_modules/
 backend/dist/
 backend/build/
 
+# Locally stored images (Cloudinary fallback)
+backend/uploads/
+
 # Environment secrets
 .env
 .env.*

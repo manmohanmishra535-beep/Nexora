@@ -42,7 +42,7 @@ const errorHandler = (error, req, res, next) => {
         message = "Check the highlighted fields.";
     }
 
-    if (statusCode >= 500) {
+    if (statusCode >= 500 && !(error instanceof AppError)) {
         // Log the stack on the server only; never leak it to the client.
         console.error(error);
         message = "Something went wrong on our side.";

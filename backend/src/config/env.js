@@ -2,7 +2,8 @@ const REQUIRED = ["CLERK_SECRET_KEY"];
 
 /**
  * Fails fast on variables the API cannot run without, and warns about
- * features that will answer 503 until configured (image uploads).
+ * features that degrade until configured (image uploads fall back to
+ * local disk without Cloudinary).
  */
 const validateEnv = () => {
     const missing = REQUIRED.filter((key) => !process.env[key]);
@@ -22,7 +23,7 @@ const validateEnv = () => {
 
     if (!process.env.CLOUDINARY_CLOUD_NAME) {
         warnings.push(
-            "CLOUDINARY_* is not set; image uploads will return 503."
+            "CLOUDINARY_* is not set; images will be stored on local disk (backend/uploads)."
         );
     }
 

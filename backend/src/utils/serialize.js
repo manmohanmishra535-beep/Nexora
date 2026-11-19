@@ -110,7 +110,9 @@ const decoratePost = (doc, viewer, repostedOriginalIds = new Set()) => {
 
 /**
  * One batched query answers "did I repost any of these?" so a 20-post page
- * does not fire 20 extra lookups.
+ * does not fire 20 extra lookups. The ids cover both the rows themselves
+ * and any originals embedded in a repost row, because a repost renders its
+ * original inline and that original needs the flag as well.
  */
 const publicPosts = async (posts, viewer) => {
     const rows = posts.map(asPlain).filter(Boolean);
@@ -119,19 +121,25 @@ const publicPosts = async (posts, viewer) => {
         return rows.map((row) => decoratePost(row, viewer));
     }
 
-    const originalIds = rows
-        .map((row) => {
+    const targetIds = rows
+        .flatMap((row) => {
+            const ids = [row._id];
             const original = row.repostOf;
-            return original && typeof original === "object"
-                ? original._id
-                : original;
+
+            if (original) {
+                ids.push(
+                    typeof original === "object" ? original._id : original
+                );
+            }
+
+            return ids;
         })
         .filter(Boolean);
 
-    const reposts = originalIds.length
+    const reposts = targetIds.length
         ? await Post.find({
             author: viewer._id,
-            repostOf: { $in: originalIds },
+            repostOf: { $in: targetIds },
         })
             .select("repostOf")
             .lean()
