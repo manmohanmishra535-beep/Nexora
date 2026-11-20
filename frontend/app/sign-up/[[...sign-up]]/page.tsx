@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSignUp } from "@clerk/nextjs";
+import { useSignUp, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
 import AuthShell from "@/components/AuthShell";
+import LeaveAuthPage from "@/components/LeaveAuthPage";
 import Button from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 
 export default function SignUpPage() {
   const { signUp, fetchStatus } = useSignUp();
+  const { isLoaded: userLoaded, isSignedIn } = useUser();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -88,7 +90,6 @@ export default function SignUpPage() {
         await signUp.finalize({
           navigate: ({ session, decorateUrl }) => {
             if (session?.currentTask) {
-              console.log("Pending session task:", session.currentTask);
               setError(
                 "Your account needs an additional verification step."
               );
@@ -142,6 +143,15 @@ export default function SignUpPage() {
       setLoading(false);
     }
   };
+
+  if (!userLoaded || isSignedIn) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-bg text-[13px] text-ink-3">
+        <LeaveAuthPage />
+        Loading Nexora…
+      </main>
+    );
+  }
 
   return (
     <>

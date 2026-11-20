@@ -38,6 +38,7 @@ Start the backend on port 5000 (see the root README) before opening
 | `npx tsc --noEmit` | Type-check without emitting |
 | `npm run lint` | ESLint |
 | `npm run test:e2e` | Browser suite (Playwright) |
+| `npx next analyze` | Bundle analysis (writes `.next/diagnostics/analyze`) |
 
 ## Structure
 
@@ -125,8 +126,6 @@ proxy.ts                  Clerk protected-route matcher
 - Browser tests live in `e2e/` (`npm run test:e2e`, Playwright); one-time setup is
   `npx playwright install chromium`. `npx tsc --noEmit` and `npm run build` remain
   the static checks.
-- `createRouteMatcher` in `proxy.ts` triggers a Clerk deprecation warning; the migration
-  plan is in `../docs/ALIGNMENT.md`.
 
 See [`../docs/ALIGNMENT.md`](../docs/ALIGNMENT.md) for the full deviation log and API
 contract.

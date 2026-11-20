@@ -95,12 +95,6 @@ export default function RightRail({ signedIn }: { signedIn: boolean }) {
           </Link>
         </section>
       )}
-
-      <footer className="px-1 text-[13px] leading-6 text-ink-3">
-        Nexora Design System · v1.0
-        <br />
-        Tokens mirror frontend/app/tokens.css
-      </footer>
     </div>
   );
 }

@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSignIn } from "@clerk/nextjs";
+import { useSignIn, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
 import AuthShell from "@/components/AuthShell";
+import LeaveAuthPage from "@/components/LeaveAuthPage";
 import Button from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 
@@ -29,6 +30,7 @@ const COPY: Record<Step, { title: string; subtitle: string }> = {
 
 export default function ForgotPasswordPage() {
   const { signIn, fetchStatus } = useSignIn();
+  const { isLoaded: userLoaded, isSignedIn } = useUser();
   const router = useRouter();
 
   const [step, setStep] = useState<Step>("email");
@@ -141,7 +143,6 @@ export default function ForgotPasswordPage() {
         const { error: finalizeError } = await signIn.finalize({
           navigate: async ({ session, decorateUrl }) => {
             if (session?.currentTask) {
-              console.log("Pending session task:", session.currentTask);
               setError("Additional account verification is required.");
               return;
             }
@@ -201,6 +202,15 @@ export default function ForgotPasswordPage() {
   };
 
   const copy = COPY[step];
+
+  if (!userLoaded || isSignedIn) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-bg text-[13px] text-ink-3">
+        <LeaveAuthPage />
+        Loading Nexora…
+      </main>
+    );
+  }
 
   return (
     <AuthShell

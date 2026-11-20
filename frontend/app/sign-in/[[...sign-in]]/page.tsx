@@ -1,18 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useSignIn, useUser } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
 
 import AuthShell from "@/components/AuthShell";
+import LeaveAuthPage from "@/components/LeaveAuthPage";
 import Button from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 
 export default function SignInPage() {
   const { signIn, fetchStatus } = useSignIn();
   const { isLoaded: userLoaded, isSignedIn } = useUser();
-  const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,12 +19,6 @@ export default function SignInPage() {
   const [step, setStep] = useState<"password" | "verify">("password");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (userLoaded && isSignedIn) {
-      router.replace("/");
-    }
-  }, [userLoaded, isSignedIn, router]);
 
   const finishSignIn = async () => {
     if (!signIn || signIn.status !== "complete") {
@@ -153,6 +146,7 @@ export default function SignInPage() {
   if (!userLoaded || isSignedIn) {
     return (
       <main className="grid min-h-screen place-items-center bg-bg text-[13px] text-ink-3">
+        <LeaveAuthPage />
         Loading Nexora…
       </main>
     );
