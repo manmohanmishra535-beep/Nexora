@@ -116,6 +116,7 @@ Open <http://localhost:3000>. Keep the backend on port 5000 (or update
 | `frontend/` | `npx tsc --noEmit` | Type-check |
 | `frontend/` | `npm run lint` | ESLint |
 | `frontend/` | `npm run test:e2e` | Browser suite (Playwright) |
+| `frontend/` | `npx next analyze` | Bundle analysis (Turbopack, writes `.next/diagnostics/analyze`) |
 | `backend/` | `npm run dev` | Express with nodemon |
 | `backend/` | `npm start` | Express once |
 | `backend/` | `npm test` | API test suite (Jest + Supertest) |
@@ -144,7 +145,9 @@ Nexora/
 │  ├─ proxy.ts          Clerk route protection
 │  └─ .env.example
 ├─ docs/
-│  └─ ALIGNMENT.md      deviations, contracts, and remaining work
+│  ├─ ALIGNMENT.md      deviations, contracts, and remaining work
+│  └─ DEPLOYMENT.md     Render backend + Vercel frontend checklist
+├─ render.yaml          Render blueprint for the API
 └─ README.md
 ```
 
@@ -168,13 +171,12 @@ The complete endpoint table is in [`docs/ALIGNMENT.md`](docs/ALIGNMENT.md).
   `backend/uploads/` and served at `/uploads`. Fixing `.env` switches to the CDN with no
   code changes.
 - **Both test suites need network access** because they mint real Clerk session
-  tokens: `npm test` in `backend/` runs 31 API tests against an isolated `nexora_test`
+  tokens: `npm test` in `backend/` runs 44 API tests against an isolated `nexora_test`
   MongoDB database (dropped after each run), and `npm run test:e2e` in `frontend/`
-  runs 6 browser tests in Chromium against the dev servers — run
+  runs 14 browser tests in Chromium against the dev servers — run
   `npx playwright install chromium` once first. The browser suite signs a throwaway
   `nexora+clerk_test@example.com` account in via Clerk testing tokens and deletes
   that account's posts afterwards.
-- Clerk's `createRouteMatcher` is deprecated; migration is tracked in the alignment doc.
 - The Next.js image optimizer is disabled for post images (`unoptimized`) because
   Cloudinary transforms them when configured (the local fallback stores originals).
 
@@ -182,4 +184,6 @@ The complete endpoint table is in [`docs/ALIGNMENT.md`](docs/ALIGNMENT.md).
 
 - [`docs/ALIGNMENT.md`](docs/ALIGNMENT.md) — every deviation from the engineering docs,
   the full API surface, security notes, and launch work.
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — deploying the API to Render and the
+  frontend to Vercel, with the full environment-variable checklist.
 - `frontend/README.md` — frontend-specific setup and architecture.

@@ -542,3 +542,319 @@ describe("image uploads (local fallback)", () => {
         expect(response.body.error.fields.images).toContain("4");
     });
 });
+
+describe("follows and relationships", () => {
+    let idA;
+    let idB;
+    // Usernames are read from the database rather than hardcoded: Clerk owns
+    // them, and the test profile's value differs from the dev database's
+    // legacy longer username (see the auth suite's note).
+    let usernameA;
+    let usernameB;
+
+    beforeAll(async () => {
+        const meA = (
+            await request(app).get("/api/users/me").set(auth(tokenA))
+        ).body.user;
+        const meB = (
+            await request(app).get("/api/users/me").set(auth(tokenB))
+        ).body.user;
+
+        idA = meA._id;
+        idB = meB._id;
+        usernameA = meA.username;
+        usernameB = meB.username;
+    });
+
+    test("follows are idempotent and show up in both profiles' lists", async () => {
+        const first = await request(app)
+            .post(`/api/users/${idB}/follow`)
+            .set(auth(tokenA));
+
+        expect(first.status).toBe(200);
+        expect(first.body).toEqual({ following: true });
+
+        // A second follow must not duplicate the relationship.
+        const again = await request(app)
+            .post(`/api/users/${idB}/follow`)
+            .set(auth(tokenA));
+
+        expect(again.status).toBe(200);
+        expect(again.body).toEqual({ following: true });
+
+        const followers = await request(app)
+            .get(`/api/users/${usernameB}/followers`)
+            .set(auth(tokenA));
+
+        expect(followers.status).toBe(200);
+        expect(followers.body.items.map((user) => user.username)).toContain(
+            usernameA
+        );
+        expect(followers.body.nextCursor).toBeNull();
+
+        const following = await request(app)
+            .get(`/api/users/${usernameA}/following`)
+            .set(auth(tokenA));
+
+        expect(following.status).toBe(200);
+        expect(following.body.items.map((user) => user.username)).toContain(
+            usernameB
+        );
+
+        const removed = await request(app)
+            .delete(`/api/users/${idB}/follow`)
+            .set(auth(tokenA));
+
+        expect(removed.status).toBe(200);
+        expect(removed.body).toEqual({ following: false });
+
+        const after = await request(app)
+            .get("/api/users/mishra695/followers")
+            .set(auth(tokenA));
+
+        expect(after.body.items.map((user) => user.username)).not.toContain(
+            usernameA
+        );
+    });
+
+    test("rejects following yourself", async () => {
+        const response = await request(app)
+            .post(`/api/users/${idA}/follow`)
+            .set(auth(tokenA));
+
+        expect(response.status).toBe(400);
+        expect(response.body.error.code).toBe("VALIDATION_FAILED");
+    });
+
+    test("rejects a malformed id", async () => {
+        const response = await request(app)
+            .post("/api/users/not-an-id/follow")
+            .set(auth(tokenA));
+
+        expect(response.status).toBe(422);
+        expect(response.body.error.fields.id).toBeTruthy();
+    });
+
+    test("404s an unknown person", async () => {
+        const response = await request(app)
+            .post("/api/users/507f1f77bcf86cd799439011/follow")
+            .set(auth(tokenA));
+
+        expect(response.status).toBe(404);
+    });
+});
+
+describe("notifications", () => {
+    let idB;
+    let usernameA;
+
+    beforeAll(async () => {
+        idB = (await request(app).get("/api/users/me").set(auth(tokenB))).body
+            .user._id;
+        usernameA = (await request(app).get("/api/users/me").set(auth(tokenA)))
+            .body.user.username;
+    });
+
+    test("a new follow raises the unread count and shows up in the list", async () => {
+        const before = (
+            await request(app)
+                .get("/api/notifications/unread-count")
+                .set(auth(tokenB))
+        ).body.count;
+
+        const follow = await request(app)
+            .post(`/api/users/${idB}/follow`)
+            .set(auth(tokenA));
+
+        expect(follow.status).toBe(200);
+
+        const after = (
+            await request(app)
+                .get("/api/notifications/unread-count")
+                .set(auth(tokenB))
+        ).body.count;
+
+        expect(after).toBe(before + 1);
+
+        const list = await request(app)
+            .get("/api/notifications")
+            .set(auth(tokenB));
+
+        expect(list.status).toBe(200);
+
+        const hit = list.body.items.find(
+            (item) =>
+                item.type === "follow" &&
+                item.actor?.username === usernameA &&
+                item.read === false
+        );
+
+        expect(hit).toBeTruthy();
+    });
+
+    test("marking everything read zeroes the unread count", async () => {
+        const response = await request(app)
+            .patch("/api/notifications/read")
+            .set(auth(tokenB));
+
+        expect(response.status).toBe(204);
+
+        const count = (
+            await request(app)
+                .get("/api/notifications/unread-count")
+                .set(auth(tokenB))
+        ).body.count;
+
+        expect(count).toBe(0);
+    });
+});
+
+describe("direct messages", () => {
+    let idA;
+    let idB;
+    let usernameA;
+    let conversationId;
+
+    beforeAll(async () => {
+        const meA = (
+            await request(app).get("/api/users/me").set(auth(tokenA))
+        ).body.user;
+        const meB = (
+            await request(app).get("/api/users/me").set(auth(tokenB))
+        ).body.user;
+
+        idA = meA._id;
+        idB = meB._id;
+        usernameA = meA.username;
+    });
+
+    test("creates one conversation for a pair and returns it to both sides", async () => {
+        const first = await request(app)
+            .post("/api/conversations")
+            .set(auth(tokenA))
+            .send({ userId: idB });
+
+        expect(first.status).toBe(200);
+        conversationId = first.body.conversation._id;
+        expect(first.body.conversation.participants).toHaveLength(2);
+
+        // Repeat calls reuse the pair's conversation instead of forking it.
+        const again = await request(app)
+            .post("/api/conversations")
+            .set(auth(tokenA))
+            .send({ userId: idB });
+
+        expect(again.body.conversation._id).toBe(conversationId);
+
+        const fromB = await request(app)
+            .post("/api/conversations")
+            .set(auth(tokenB))
+            .send({ userId: idA });
+
+        expect(fromB.body.conversation._id).toBe(conversationId);
+
+        const list = await request(app)
+            .get("/api/conversations")
+            .set(auth(tokenA));
+
+        expect(list.status).toBe(200);
+        expect(list.body.items.map((item) => item._id)).toContain(
+            conversationId
+        );
+    });
+
+    test("rejects a conversation with yourself", async () => {
+        const response = await request(app)
+            .post("/api/conversations")
+            .set(auth(tokenA))
+            .send({ userId: idA });
+
+        expect(response.status).toBe(422);
+        expect(response.body.error.fields.userId).toBeTruthy();
+    });
+
+    test("rejects a malformed userId", async () => {
+        const response = await request(app)
+            .post("/api/conversations")
+            .set(auth(tokenA))
+            .send({ userId: "not-an-id" });
+
+        expect(response.status).toBe(422);
+        expect(response.body.error.fields.userId).toBeTruthy();
+    });
+
+    test("404s an unknown person", async () => {
+        const response = await request(app)
+            .post("/api/conversations")
+            .set(auth(tokenA))
+            .send({ userId: "507f1f77bcf86cd799439011" });
+
+        expect(response.status).toBe(404);
+    });
+
+    test("sends messages and returns them newest first", async () => {
+        const first = await request(app)
+            .post(`/api/conversations/${conversationId}/messages`)
+            .set(auth(tokenA))
+            .send({ text: "first message" });
+
+        expect(first.status).toBe(201);
+        expect(first.body.conversationId).toBe(conversationId);
+        expect(first.body.message.text).toBe("first message");
+        expect(first.body.message.sender.username).toBe(usernameA);
+
+        const second = await request(app)
+            .post(`/api/conversations/${conversationId}/messages`)
+            .set(auth(tokenB))
+            .send({ text: "second message" });
+
+        expect(second.status).toBe(201);
+
+        const messages = await request(app)
+            .get(`/api/conversations/${conversationId}/messages`)
+            .set(auth(tokenA));
+
+        expect(messages.status).toBe(200);
+        expect(messages.body.items.map((item) => item.text)).toEqual([
+            "second message",
+            "first message",
+        ]);
+        expect(messages.body.nextCursor).toBeNull();
+
+        const list = await request(app)
+            .get("/api/conversations")
+            .set(auth(tokenA));
+
+        expect(
+            list.body.items.find((item) => item._id === conversationId)
+                .lastMessage.text
+        ).toBe("second message");
+    });
+
+    test("rejects an empty message", async () => {
+        const response = await request(app)
+            .post(`/api/conversations/${conversationId}/messages`)
+            .set(auth(tokenA))
+            .send({ text: "   " });
+
+        expect(response.status).toBe(422);
+        expect(response.body.error.fields.text).toBeTruthy();
+    });
+
+    test("404s an unknown conversation", async () => {
+        const unknown = "507f1f77bcf86cd799439011";
+
+        const read = await request(app)
+            .get(`/api/conversations/${unknown}/messages`)
+            .set(auth(tokenA));
+
+        expect(read.status).toBe(404);
+
+        const send = await request(app)
+            .post(`/api/conversations/${unknown}/messages`)
+            .set(auth(tokenA))
+            .send({ text: "ghost" });
+
+        expect(send.status).toBe(404);
+    });
+});

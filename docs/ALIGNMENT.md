@@ -1,6 +1,6 @@
 # Nexora implementation alignment
 
-Last verified: 2026-11-17
+Last verified: 2026-11-20
 
 This project follows the product scope in **Nexora Engineering Docs** and the visual
 language in **Nexora Design System.html**. Where the brief asked us to keep Clerk and
@@ -21,14 +21,15 @@ added, and the work that remains before a production launch.
 | Styling | Design-system tokens | Tokens in `frontend/app/tokens.css`, mapped to Tailwind v4 |
 | Markdown/UI theme | Theme stored on profile | **`localStorage`** (`nexora-theme`) + system preference |
 | Image storage | Cloudinary | Cloudinary with local-disk fallback |
-| Tests | Jest / Supertest / Playwright | API suite (31 tests) + Playwright browser suite (6 tests); manual + type/build verification |
+| Tests | Jest / Supertest / Playwright | API suite (44 tests) + Playwright browser suite (14 tests); manual + type/build verification |
 
 ## Authentication and identity
 
 - **Clerk replaces local password auth.** No password hashes, refresh-token tables, or
   local login endpoints exist. Clerk owns sign-up, sign-in, email verification, password
-  reset, OAuth, and session refresh. `frontend/app/forgot-password/page.tsx` explains
-  that reset is handled by Clerk.
+  reset, OAuth, and session refresh. `frontend/app/forgot-password/page.tsx` drives
+  Clerk's reset flow end to end (email → verification code → new password) with the
+  design system's own fields instead of Clerk's widget.
 - **Local profile mapping.** `backend/src/models/User.js` stores `clerkId` (unique). The
   first authenticated request creates the Mongo profile from Clerk; later requests
   refresh Clerk-owned fields. `upsertUserFromClerk` is used lazily by `requireAuth`
@@ -48,10 +49,8 @@ added, and the work that remains before a production launch.
 
 ### Clerk notes
 
-- `frontend/proxy.ts` uses `createRouteMatcher` to protect app routes. Clerk currently
-  prints a deprecation warning for this helper. The planned migration is to move auth
-  checks into each protected layout/page; the current matcher is kept so the route list
-  stays in one place.
+- The signed-out check is resource-based; see *Routes and protection* below for the
+  route group, the soft `proxy.ts` redirect, and how the layout gate was verified.
 - Clerk session tokens are short-lived. The SDK refreshes them automatically. The API
   passes `CLERK_CLOCK_SKEW_MS` (default `30000`) to `clerkMiddleware`, so a token minted a
   few seconds ahead of the server clock is accepted. Keep machine clocks on NTP in
@@ -72,6 +71,22 @@ Protected routes (redirect to `/sign-in` when signed out):
 
 `/profile` and `/edit-profile` are redirects to the signed-in user's canonical profile
 and settings editor. They exist so older links do not break.
+
+Protection is resource-based (Clerk's post-`createRouteMatcher` model): those eight
+routes live in the `app/(app)/(protected)/` route group, whose layout performs the
+signed-out redirect, while `proxy.ts` keeps only a soft early redirect for the same
+paths as a performance optimization. The layout gate was verified by running the
+signed-out browser tests with the middleware redirect disabled; both passed.
+
+Auth pages (`/sign-in`, `/sign-up`, `/forgot-password`) render a loading state
+until Clerk resolves, so no half-wired form ever appears, and they send an
+already-signed-in visitor away: to the `redirect_url` query param when it is a
+safe same-site path (that is where the signed-out redirect was sending them),
+otherwise `/`. Off-site targets (`//host`, `/\host`, absolute URLs) and targets
+pointing back at an auth page are rejected, so the redirect can neither leave
+the site nor loop. Covered by `e2e/auth-redirect.spec.ts` (signed-in redirect)
+and the signed-out form checks in `e2e/public.spec.ts` (the loading guard must
+not strand visitors on the loading screen).
 
 ## API contracts
 
@@ -258,29 +273,82 @@ tracked.
 - API smoke tests covered health, profile sync, feed/explore viewer flags, post editing
   (success and failure), and an image-upload round trip (create with image, serve over
   `/uploads`, render in the browser, delete with file cleanup).
-- **API suite: Jest + Supertest in `backend/tests/` (`npm test`, 31 tests).** Covers auth
+- **API suite: Jest + Supertest in `backend/tests/` (`npm test`, 44 tests).** Covers auth
   (missing/garbage tokens, per-account profiles), post CRUD and validation (280 chars,
   ownership, id/404 handling), the like/repost/bookmark verb contracts — including the
   idempotency and `repostedByMe` viewer-flag behavior the client depends on for its
-  toggle buttons — feed and explore cursor pagination, comments, and the local
-  image-upload fallback (store, serve with the CORP header, delete with file cleanup).
-  It runs against an isolated `nexora_test` database (dropped after each run) and mints
-  real Clerk session tokens, so it needs network access. `src/server.js` exports the app
-  and only listens when run directly, which lets supertest bind an ephemeral port.
-- **Browser suite: Playwright in `frontend/e2e/` (`npm run test:e2e`, 6 tests).**
+  toggle buttons — feed and explore cursor pagination, comments, follow idempotency
+  with follower/following lists and self/malformed/404 guards, the notification
+  unread-count → list → mark-read contracts, the conversation and message contracts
+  (a pair shares one conversation, newest-first message pages, validation, 404s), and
+  the local image-upload fallback (store, serve with the CORP header, delete with file
+  cleanup). It runs against an isolated `nexora_test` database (dropped after each run)
+  and mints real Clerk session tokens, so it needs network access. `src/server.js`
+  exports the app and only listens when run directly, which lets supertest bind an
+  ephemeral port.
+- **Browser suite: Playwright in `frontend/e2e/` (`npm run test:e2e`, 14 tests).**
   It covers the flows where UI bugs actually surfaced: sign-in through Clerk testing
   tokens with a throwaway `nexora+clerk_test@example.com` account, composer post
   creation, the like/bookmark/repost toggle contracts asserted again after full page
   reloads (regressions for the inverted-verb fix and the `repostedByMe` serializer
   fix), image upload with a `naturalWidth` check proving the bytes loaded, the logout
-  confirmation dialog, and signed-out redirects plus the public profile. It reuses
-  already-running dev servers (starting them otherwise), keeps saved browser state in
-  `frontend/e2e/.auth/` (gitignored), runs serially on one worker, and deletes the
-  test account's posts in a global teardown. One-time setup:
+  confirmation dialog, signed-out redirects plus the public profile, the auth-page
+  redirect decision (signed-in visitors leave for a safe `redirect_url` or `/`, and
+  off-site or looping targets fall back home), the signed-out rendering of the
+  sign-up and password-reset forms after Clerk resolves (the loading guard must not
+  strand visitors), the robots.txt contract (a real text/plain robots file rather
+  than the `[username]` catch-all), and a realtime
+  test proving the deferred `socket.io-client` chunk still opens the backend
+  WebSocket after hydration. That realtime test exposed a duplicate `/` route — a
+  second `app/page.tsx` shadowed `app/(app)/page.tsx`, so the home feed rendered
+  outside the `(app)` layout and never mounted `SocketProvider`; the two pages were
+  consolidated into `app/(app)/page.tsx`, keeping the visible design. The suite
+  reuses already-running dev servers (starting them otherwise), keeps saved browser
+  state in `frontend/e2e/.auth/` (gitignored), runs serially on one worker, and
+  deletes the test account's posts in a global teardown. One-time setup:
   `npx playwright install chromium`; it needs network access for Clerk.
-- **No Lighthouse/JS-budget measurement has been recorded.** Route-level code splitting
-  and `next/image` are in place, but real lazy-loading and bundle-size checks remain
-  launch work.
+- **Bundle-size budget recorded with `next analyze` (built into Turbopack, v16.1+).**
+  First-load client JS per route — read from the prerendered HTML's script tags and
+  gzipped (re-measured 2026-11-19, deterministic against a second clean build):
+  shared baseline 244.1 KB (11 chunks), content routes 261.9–267.1 KB (worst:
+  `/`), auth routes 248.6–248.7 KB. Budget: content ≤ 275 KB, auth
+  ≤ 255 KB, baseline ≤ 250 KB, route delta over baseline ≤ 25 KB — every route
+  passes (tightest margin: home at +22.9 KB). Content routes were 279.6–284.9 KB (over budget) before
+  `socket.io-client` (12.9 KB gz) moved from a static import in `RealtimeProvider`
+  to a dynamic import loaded after hydration; `e2e/realtime.spec.ts` guards that the
+  connection still opens. Reproduce: `npm run build`, then `npx next analyze
+  --output --snapshot <name>` and `npx next analyze export --snapshot <name>` for a
+  JSONL record to diff; per-route gzip totals come from the `/_next/static/*.js`
+  script tags in each file under `.next/server/app/**/*.html`.
+- **First Lighthouse run recorded 2026-11-20** (Lighthouse 13.6.0, lab, signed-out
+  pages against a production `next start` build; default mobile preset = simulated
+  Slow 4G + 4× CPU throttle, medians of 3 runs): `/sign-in` — performance 48,
+  accessibility 100, best-practices 77, SEO 100; `/manmohanmishra535` —
+  performance 45, accessibility 100, best-practices 73, SEO 100. Desktop preset:
+  performance 94 and 85. CLS 0 on both; FCP 2.0 s; TBT median 1.6 s / 2.3 s under
+  the 4× throttle, dominated by Clerk's third-party script. The run surfaced a real
+  defect — `/robots.txt` was answered by the dynamic `/[username]` route as an HTML
+  profile page — fixed with `app/robots.ts` (SEO 91 → 100) and locked by an e2e
+  contract test. The remaining failures are external or test-setup artifacts:
+  `third-party-cookies` and `inspector-issues` come from Clerk's
+  `*.clerk.accounts.dev` test domain, and the profile page's `errors-in-console`
+  are CORS rejections of the temporary Lighthouse origin, which doubles as live
+  proof that the API allowlist rejects unknown origins. Reproduce: `npx lighthouse
+  --only-categories=performance,accessibility,best-practices,seo
+  --chrome-flags="--headless=new"`, 3 runs taking the median — single runs on a
+  busy machine varied by ~10 points (45–57 observed).
+- **Dependency audit clean (`npm audit`, both projects: 0 vulnerabilities).** The
+  frontend needed only semver-range bumps inside its lint toolchain (typescript-eslint
+  8.73.0 and its minimatch). The backend's 19 moderate advisories were all dev-only
+  and had no non-breaking upstream fix: `jest@30.5.2` pins glob@13 (fixed glob starts
+  at 14.0.2) and `nodemon@3.1.14` pins minimatch@^10 (fixed starts at 11.0.1), so
+  `backend/package.json` adds `overrides: { "glob": "^14.0.6", "minimatch": "^11.0.9" }`
+  to force the patched majors. Verified against the exact call sites the toolchain
+  uses (`glob.sync` in `@jest/reporters`/`test-exclude`, `minimatch()` with
+  `windowsPathsNoEscape` in nodemon), the 31-test API suite plus a coverage run, and a
+  nodemon dev-server restart with a watch-triggered file reload. Production trees were
+  never affected — every advisory lived under the test/dev toolchain. Drop the
+  overrides once jest/nodemon declare fixed ranges themselves.
 
 ## Local environment notes
 
@@ -295,8 +363,25 @@ tracked.
 
 ## Remaining launch work
 
-1. Supply valid Cloudinary credentials to move images from local disk to the CDN
-   (optional in local dev; uploads already work without it).
-2. Measure bundle size and add lazy loading where the budget requires it.
-3. Plan the `createRouteMatcher` migration to resource-based Clerk checks.
-4. Sync server clocks with NTP in every environment that verifies Clerk tokens.
+1. Replace `CLOUDINARY_API_SECRET` in `backend/.env` with the current secret from
+   the Cloudinary dashboard (Settings → API keys). The API key itself is valid —
+   the admin ping answers `api_secret mismatch`, and no local HMAC (SHA-1 or
+   SHA-256, with or without the image transformation) reproduces the signatures
+   Cloudinary computes, so only the secret is wrong (likely rotated or mistyped).
+   Verify with one authenticated upload after replacing it. Uploads already work
+   via the local-disk fallback meanwhile, so this only gates CDN delivery.
+2. Enable NTP time sync on this Windows dev machine — the only environment that
+   currently verifies Clerk tokens. `w32tm /query /status` shows stratum 0 /
+   "Local CMOS Clock" with no successful sync, and `w32tm /resync` is denied
+   without elevation. The measured offset against authoritative web time is 3 s,
+   well inside the API's 30 s `CLERK_CLOCK_SKEW_MS`, so tokens verify today;
+   when hardening, run elevated
+   `w32tm /config /syncfromflags:manual /manualpeerlist:"time.windows.com,time.cloudflare.com" && w32tm /resync`,
+   and configure NTP in any deployed environment.
+3. Deploy — backend on Render (blueprint: `render.yaml`), frontend on Vercel.
+   The code is deploy-ready (`docs/DEPLOYMENT.md` has the full checklist): health
+   probes are exempt from the rate limiter, `engines.node` pins Node 20+, CORS and
+   Socket.IO read the same comma-separated `CLIENT_URL`, and a production-mode
+   smoke test verified the health endpoint, allowed/blocked origins, and 120
+   consecutive probes without throttling. What remains needs your accounts: Render
+   + Vercel, Atlas network access for Render, and items 1–2 above.

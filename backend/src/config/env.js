@@ -27,6 +27,31 @@ const validateEnv = () => {
         );
     }
 
+    if (process.env.NODE_ENV === "production") {
+        const clientOrigins = (process.env.CLIENT_URL || "")
+            .split(",")
+            .map((origin) => origin.trim())
+            .filter(Boolean);
+
+        if (clientOrigins.length === 0) {
+            warnings.push(
+                "CLIENT_URL is not set in production; only http://localhost:3000 can call the API or open sockets."
+            );
+        } else if (
+            clientOrigins.some((origin) => /localhost|127\.0\.0\.1/.test(origin))
+        ) {
+            warnings.push(
+                "CLIENT_URL still contains a local origin in production; browsers on other hosts will be rejected by CORS and Socket.IO."
+            );
+        }
+
+        if (!process.env.API_URL && !process.env.RENDER_EXTERNAL_URL) {
+            warnings.push(
+                "API_URL is not set in production; locally stored image URLs will point at localhost. Set it to this service's public URL."
+            );
+        }
+    }
+
     return { warnings };
 };
 

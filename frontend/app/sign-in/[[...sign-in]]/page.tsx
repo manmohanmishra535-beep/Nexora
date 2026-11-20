@@ -11,7 +11,7 @@ import { Field } from "@/components/ui/Field";
 
 export default function SignInPage() {
   const { signIn, fetchStatus } = useSignIn();
-  const { isLoaded: userLoaded, isSignedIn } = useUser();
+  const { isLoaded: userLoaded, isSignedIn } = useUser()
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

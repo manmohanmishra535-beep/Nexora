@@ -11,9 +11,13 @@ const AppError = require("./AppError");
 const UPLOAD_ROOT = path.resolve(__dirname, "../../uploads");
 
 // Absolute origin baked into stored URLs so the browser can load them from
-// the Next.js origin (localhost:3000). Override with API_URL when deployed.
+// the Next.js origin (localhost:3000). Override with API_URL when deployed;
+// Render injects RENDER_EXTERNAL_URL automatically, so fallback uploads keep
+// working even when API_URL is forgotten.
 const PUBLIC_ORIGIN = (
-    process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`
+    process.env.API_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    `http://localhost:${process.env.PORT || 5000}`
 ).replace(/\/+$/, "");
 
 // Cloudinary transforms are applied on the CDN path; the local fallback

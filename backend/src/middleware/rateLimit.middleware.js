@@ -19,7 +19,11 @@ const apiLimiter = rateLimit({
     limit: process.env.NODE_ENV === "production" ? 100 : 1000,
     standardHeaders: "draft-7",
     legacyHeaders: false,
-    skip: skipInTests,
+    // Health probes (Render, uptime monitors) must never consume the budget:
+    // a throttled probe looks like a dead service and triggers a restart loop.
+    // The limiter is mounted on /api, so the probe path is /health here.
+    skip: (req) =>
+        skipInTests() || req.path === "/health" || req.path === "/health/",
     message: errorBody(
         "Too many requests. Wait a few minutes and try again."
     ),

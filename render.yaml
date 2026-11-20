@@ -1,0 +1,36 @@
+# Render Blueprint for the Nexora API (Express + Socket.IO).
+# Point Render at this repository: New → Blueprint → it picks up this file.
+# Secrets are intentionally left empty (sync: false) — fill them in the
+# dashboard once, and see docs/DEPLOYMENT.md for the full checklist.
+services:
+  - type: web
+    name: nexora-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CLERK_CLOCK_SKEW_MS
+        value: "30000"
+      - key: MONGODB_URI
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      # Comma-separated exact origins allowed to call the API and open sockets.
+      - key: CLIENT_URL
+        sync: false
+      # The public URL of this service (used for fallback image URLs).
+      - key: API_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

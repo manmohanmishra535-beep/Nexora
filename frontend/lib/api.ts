@@ -1,7 +1,17 @@
 import type { ApiErrorBody } from "./types";
 
 const RAW_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL ||
+  (() => {
+    if (process.env.NODE_ENV === "production") {
+      // Fail the deploy loudly instead of shipping an app that calls localhost.
+      throw new Error(
+        "NEXT_PUBLIC_API_URL is required for production builds. Set it in the hosting environment (see docs/DEPLOYMENT.md).",
+      );
+    }
+
+    return "http://localhost:5000";
+  })();
 
 export const API_BASE = `${RAW_BASE.replace(/\/+$/, "")}/api`;
 
