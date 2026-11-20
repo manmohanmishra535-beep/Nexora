@@ -32,8 +32,8 @@ export default function AppShell({
   const unread = useUnreadCount(Boolean(isSignedIn));
   const [logoutOpen, setLogoutOpen] = useState(false);
 
-  const username =
-    me.data?.username || user?.username || user?.firstName?.toLowerCase() || "";
+  const avatarUrl = me.data?.profileImage?.url || user?.imageUrl;
+  const username = me.data?.username || user?.username || "";
   const profileHref = username ? `/${username}` : "/profile";
 
   const navigation: NavItem[] = [
