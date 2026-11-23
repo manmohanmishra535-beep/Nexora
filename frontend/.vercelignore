@@ -1,0 +1,9 @@
+# Never upload local secrets or build output to a deployment.
+.env.local
+.env*.local
+.vercel
+.next
+node_modules
+test-results
+playwright-report
+e2e/.auth
