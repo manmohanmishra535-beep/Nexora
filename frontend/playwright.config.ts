@@ -69,7 +69,7 @@ export default defineConfig({
     {
       command: "npm run dev",
       cwd: __dirname,
-      url: `${FRONTEND_URL}/manmohanmishra535`,
+      url: `${FRONTEND_URL}/${process.env.E2E_PROFILE_USERNAME ?? "manmohan"}`,
       reuseExistingServer: true,
       timeout: 120_000,
     },

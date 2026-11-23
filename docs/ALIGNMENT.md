@@ -305,7 +305,10 @@ tracked.
   consolidated into `app/(app)/page.tsx`, keeping the visible design. The suite
   reuses already-running dev servers (starting them otherwise), keeps saved browser
   state in `frontend/e2e/.auth/` (gitignored), runs serially on one worker, and
-  deletes the test account's posts in a global teardown. One-time setup:
+  deletes the test account's posts in a global teardown. The public-profile test
+  reads its handle from `E2E_PROFILE_USERNAME` (default `manmohan`) because Clerk
+  owns usernames — a rename otherwise 404s the profile route and fails the test.
+  One-time setup:
   `npx playwright install chromium`; it needs network access for Clerk.
 - **Bundle-size budget recorded with `next analyze` (built into Turbopack, v16.1+).**
   First-load client JS per route — read from the prerendered HTML's script tags and

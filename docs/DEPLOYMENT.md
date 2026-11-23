@@ -123,6 +123,13 @@ Notes:
 - **Production builds fail fast** when `NEXT_PUBLIC_API_URL` is missing, with an
   error pointing at this document — a deploy can never silently ship an app that
   calls localhost.
+- **Environment scopes:** Vercel environment variables are scoped per
+  environment (Production / Preview / Development). Set the API and Clerk
+  variables for **all** environments, or preview deployments will fail their
+  build with the fail-fast error above.
+- **Preview URLs are protected** by Vercel Authentication by default, so
+  unauthenticated requests (and tools) get a 302. Disable it in
+  Project → Settings → Deployment Protection when sharing a demo link.
 - **Preview deployments** each get a new origin. Either add them to
   `CLIENT_URL` when testing, or stick to the production domain for real usage.
 - **Clerk**: a `pk_test` instance is fine for demos, but a real launch needs a
@@ -139,3 +146,22 @@ Notes:
 5. Backend `CLIENT_URL` updated with the Vercel domain; backend redeployed.
 6. Clerk production instance switched on (for a public launch).
 7. End-to-end check: sign-in, post, image upload, DM, notification, logout.
+
+---
+
+## Local development troubleshooting
+
+- **"Cannot reach the Nexora API. Is the backend running?"** while
+  `localhost:3000` loads fine means the backend is down — the frontend shell is
+  served by Next.js independently. Check
+  `curl http://127.0.0.1:5000/api/health`; `200 {"status":"ok","db":"connected"}`
+  means the API is fine (the browser error is then a stale tab — hard refresh),
+  `503` means MongoDB is disconnected, connection refused means restart
+  `npm run dev` in `backend/`.
+- **`EADDRINUSE: address already in use 0.0.0.0:5000`** when restarting: another
+  backend process still owns the port (a crashed nodemon keeps nothing, but a
+  detached process does). Find and stop it — PowerShell:
+  `Get-NetTCPConnection -LocalPort 5000 | Select-Object OwningProcess` then
+  `Stop-Process -Id <pid> -Force`; cmd: `netstat -ano | findstr :5000` then
+  `taskkill /F /PID <pid>`.
+- The same applies to `:3000`: only one `next dev` can own it.

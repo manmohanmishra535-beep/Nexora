@@ -107,7 +107,7 @@ export default function AppShell({
             className="rounded-full"
           >
             <Avatar
-              src={user?.imageUrl}
+              src={avatarUrl}
               name={user?.fullName || user?.firstName || "N"}
               size={32}
             />
@@ -184,7 +184,7 @@ export default function AppShell({
             <div className="flex items-center gap-2.5 px-1">
               <Link href={profileHref} className="rounded-full">
                 <Avatar
-                  src={user?.imageUrl}
+                  src={avatarUrl}
                   name={user?.fullName || user?.firstName || "N"}
                   size={32}
                 />
@@ -319,7 +319,7 @@ export default function AppShell({
             className="flex flex-1 items-center justify-center text-ink-3"
           >
             <Avatar
-              src={user?.imageUrl}
+              src={avatarUrl}
               name={user?.fullName || user?.firstName || "N"}
               size={28}
             />
